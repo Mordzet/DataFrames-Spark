@@ -6,6 +6,15 @@ y el Proyecto Final de Análisis de Ventas sobre pdi_sales.csv.
 Nota: Se evita el uso de paréntesis en texto explicativo para hacer énfasis.
 """
 
+import os
+import sys
+
+# Configuración automática del entorno para Windows
+os.environ.setdefault("JAVA_HOME", r"C:\Users\saidg\.jdks\temurin-17")
+os.environ.setdefault("HADOOP_HOME", r"C:\Users\saidg\.hadoop")
+os.environ["PYSPARK_PYTHON"] = sys.executable
+os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, lit, count, avg, max, min, sum, desc,
@@ -19,6 +28,9 @@ def main():
     spark = SparkSession.builder \
         .appName("Practica-DataFrames-Spark") \
         .master("local[*]") \
+        .config("spark.sql.shuffle.partitions", "8") \
+        .config("spark.default.parallelism", "4") \
+        .config("spark.ui.showConsoleProgress", "false") \
         .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
@@ -209,13 +221,16 @@ def main():
     print("PROYECTO FINAL: Análisis de Ventas con pdi_sales.csv")
     print("=" * 75)
 
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(base_dir, "DATOS", "pdi_sales.csv")
+
     print("Paso 1: Carga del archivo DATOS/pdi_sales.csv con separador punto y coma")
     df_ventas = spark.read.csv(
-        "DATOS/pdi_sales.csv",
+        csv_path,
         header=True,
         inferSchema=True,
         sep=";"
-    )
+    ).cache()
 
     print("\nPaso 2: Esquema del DataFrame y conteo total de filas")
     df_ventas.printSchema()
@@ -224,7 +239,6 @@ def main():
     df_ventas.show(5, truncate=False)
 
     print("\nPaso 3: Total de ingresos por país ordenado de mayor a menor")
-    # Nota: También limpiamos espacios laterales en Country para mostrar tanto la agrupación exacta como la limpia
     df_ingresos_pais = df_ventas.withColumn("Country", trim(col("Country"))) \
         .groupBy("Country") \
         .agg(sum("Revenue").alias("total_ingresos")) \
@@ -263,6 +277,7 @@ def main():
         .orderBy("anio")
     df_bonus_anual.show(20, truncate=False)
 
+    df_ventas.unpersist()
     spark.stop()
 
 
