@@ -52,6 +52,7 @@ os.environ.setdefault("HADOOP_HOME", r"C:\Users\saidg\.hadoop")
 os.environ["PYSPARK_PYTHON"] = sys.executable
 os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
+from pyspark import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, count, avg, max, min, sum, desc,
@@ -72,13 +73,24 @@ def spark_to_df(sdf):
 
 @st.cache_resource
 def get_spark_session():
-    spark = SparkSession.builder \
+    builder = SparkSession.builder \
         .appName("Practica-DataFrames-Spark-UI") \
         .master("local[*]") \
+        .config("spark.driver.host", "127.0.0.1") \
+        .config("spark.driver.bindAddress", "127.0.0.1") \
         .config("spark.sql.shuffle.partitions", "8") \
         .config("spark.default.parallelism", "4") \
-        .config("spark.ui.showConsoleProgress", "false") \
-        .getOrCreate()
+        .config("spark.ui.showConsoleProgress", "false")
+    try:
+        spark = builder.getOrCreate()
+        _ = spark.version
+    except Exception:
+        SparkContext._active_spark_context = None
+        SparkContext._gateway = None
+        SparkContext._jvm = None
+        SparkSession._instantiatedSession = None
+        SparkSession._activeSession = None
+        spark = builder.getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     return spark
 

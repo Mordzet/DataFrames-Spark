@@ -10,11 +10,19 @@ import os
 import sys
 
 # Configuración automática del entorno para Windows
-os.environ.setdefault("JAVA_HOME", r"C:\Users\saidg\.jdks\temurin-17")
-os.environ.setdefault("HADOOP_HOME", r"C:\Users\saidg\.hadoop")
+os.environ["JAVA_HOME"] = r"C:\Users\saidg\.jdks\temurin-17"
+os.environ["HADOOP_HOME"] = r"C:\Users\saidg\.hadoop"
 os.environ["PYSPARK_PYTHON"] = sys.executable
 os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+os.environ["PATH"] = (
+    os.path.join(os.environ["JAVA_HOME"], "bin")
+    + os.pathsep
+    + os.path.join(os.environ["HADOOP_HOME"], "bin")
+    + os.pathsep
+    + os.environ.get("PATH", "")
+)
 
+from pyspark import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, lit, count, avg, max, min, sum, desc,
@@ -24,14 +32,30 @@ from pyspark.sql.functions import (
 from pyspark.sql.window import Window
 
 
-def main():
-    spark = SparkSession.builder \
+def crear_sesion_spark():
+    builder = SparkSession.builder \
         .appName("Practica-DataFrames-Spark") \
         .master("local[*]") \
+        .config("spark.driver.host", "127.0.0.1") \
+        .config("spark.driver.bindAddress", "127.0.0.1") \
         .config("spark.sql.shuffle.partitions", "8") \
         .config("spark.default.parallelism", "4") \
-        .config("spark.ui.showConsoleProgress", "false") \
-        .getOrCreate()
+        .config("spark.ui.showConsoleProgress", "false")
+    try:
+        s = builder.getOrCreate()
+        _ = s.version
+        return s
+    except Exception:
+        SparkContext._active_spark_context = None
+        SparkContext._gateway = None
+        SparkContext._jvm = None
+        SparkSession._instantiatedSession = None
+        SparkSession._activeSession = None
+        return builder.getOrCreate()
+
+
+def main():
+    spark = crear_sesion_spark()
 
     spark.sparkContext.setLogLevel("ERROR")
 
